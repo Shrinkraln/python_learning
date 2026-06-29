@@ -1,8 +1,8 @@
 ---
-title:Python
-description:
-tags:['python']
-pubDate:2026-06-29
+title: Python 学习笔记
+description: Python 基础语法与练习记录
+tags: ['python']
+pubDate: 2026-06-29
 ---
 
 
