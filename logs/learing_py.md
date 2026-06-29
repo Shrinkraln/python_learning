@@ -1,7 +1,7 @@
 ---
 title:Python
 description:
-tags:python
+tags:['python']
 pubDate:2026-06-29
 ---
 
