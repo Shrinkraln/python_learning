@@ -1,3 +1,12 @@
+---
+title:Python
+description:
+tags:python
+pubDate:2026-06-29
+---
+
+
+
 # 1. 第一个python程序
 
 ```python
