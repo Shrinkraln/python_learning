@@ -466,6 +466,19 @@ def f2(a, b, c=0, *, d, **kw):
 ```
 2. 迭代
 ```python
+#可用于for in 的数据类型包括
+#集合数据类型，list tuple dict set str
+#generator包括生成器和带yield的generator function
+#这两类可以直接作用于for的对象统称为Iterable
+#判断是否是可迭代对象
+>>> from collections.abc import Iterable
+>>> isinstance('abc', Iterable) # str是否可迭代
+True
+>>> isinstance([1,2,3], Iterable) # list是否可迭代
+True
+>>> isinstance(123, Iterable) # 整数是否可迭代
+False
+
 #给定一个list或者tuple，使用for in来遍历
 #不局限于有下标的list tuple
 ##用于dict
@@ -488,14 +501,6 @@ b
 A
 B
 C
-#判断是否是可迭代对象
->>> from collections.abc import Iterable
->>> isinstance('abc', Iterable) # str是否可迭代
-True
->>> isinstance([1,2,3], Iterable) # list是否可迭代
-True
->>> isinstance(123, Iterable) # 整数是否可迭代
-False
 #同时迭代索引和元素本身
 >>> for i, value in enumerate(['A', 'B', 'C']): #enumerate将list变为索引-元素对
 ...     print(i, value)
@@ -581,5 +586,123 @@ step 3
 Traceback (most recent call last):
   File "<stdin>", line 1, in <module>
 StopIteration
+```
+5. 迭代器
+```python
+#可以被next()调用并返回下一个值的对象叫做迭代器Iterator
+#是惰性序列，可以表示数学上的无穷大小的集合
+#Iterable中只有生成器是Iterator对象，其余集合类对象需要iter()转换
+>>> isinstance(iter([]), Iterator)
+True
+#判断是否Iterator
+>>> isinstance([],Iterator)
+False
+```
+# 5. 函数式编程
+## 1. 高阶函数
+```python
+#变量能指向函数，而函数能接受变量
+def add(x, y, f):
+    return f(x) + f(y)
+```
+1. map/reduce
+```python
+#map()传入两个参数，第一个是函数，第二个是Iterable，将函数依次作用于Iterable并输出Iterator
+#Iterator是惰性序列，需要强迫获取其所有结果需要list()
+>>> def f(x):
+...     return x * x
+...
+>>> r = map(f, [1, 2, 3, 4, 5, 6, 7, 8, 9])
+>>> list(r)
+[1, 4, 9, 16, 25, 36, 49, 64, 81]
+#reduce()传入两个参数，第一个是接受两个参数的函数，第二个是Iterable，将函数依次作用于Iterable并输出作为结果，和下一个Iterable一起作为参数传入
+reduce(f, [x1, x2, x3, x4]) = f(f(f(x1, x2), x3), x4)
 
+>>> from functools import reduce
+>>> def add(x, y):
+...     return x + y
+...
+>>> reduce(add, [1, 3, 5, 7, 9])
+25
+```
+2. filter
+```python
+#将函数作用于Iterable上，根据返回值判断是都保留，得到的是Iterator惰性序列，需要list()
+def is_odd(n):
+    return n % 2 == 1
+list(filter(is_odd, [1, 2, 4, 5, 6, 9, 10, 15]))
+# 结果: [1, 5, 9, 15]
+```
+3. sorted
+```python
+#直接排序
+>>> sorted([36, 5, -12, 9, -21])
+[-21, -12, 5, 9, 36]
+#key函数定义排序
+#先根据key函数map()之后，根据新的序列排序，再返回对应原始序列的元素
+>>> sorted([36, 5, -12, 9, -21], key=abs)
+[5, 9, -12, -21, 36]
+#字符串排序按照ASCII码大小
+>>> sorted(['bob', 'about', 'Zoo', 'Credit'])
+['Credit', 'Zoo', 'about', 'bob']
+#如果忽略大小写问题
+>>> sorted(['bob', 'about', 'Zoo', 'Credit'], key=str.lower)
+['about', 'bob', 'Credit', 'Zoo']
+#如果翻转顺序
+>>> sorted(['bob', 'about', 'Zoo', 'Credit'], key=str.lower, reverse=True)
+['Zoo', 'Credit', 'bob', 'about']
+```
+## 2. 返回函数
+1. 闭包
+```python
+#函数作为返回值
+#返回的函数并没有立即执行，而是直到自身被调用
+#除去内部函数的传入参数作为占位符替换外，其余返回函数内使用的变量会随着变化而变化
+def count():
+    fs = []
+    for i in range(1, 4):
+        def f():
+             return i*i
+        fs.append(f)
+    return fs
+f1, f2, f3 = count()
+>>> f1()
+9
+>>> f2()
+9
+>>> f3()
+9
+
+def count():
+    def f(j):
+        def g():
+            return j*j
+        return g
+    fs = []
+    for i in range(1, 4):
+        fs.append(f(i)) # f(i)立刻被执行，因此i的当前值被传入f()，j的值被i替换
+    return fs
+```
+2. nonlocal
+```python
+#内层函数引用外部函数变量正常，到那时对其操作报错
+#但是对外层变量操作，解释器会将其作为内层函数的局部变量，会因未定义而报错
+#需要对内层函数引用的外层变量进行nonlocal声明
+def inc():
+    x = 0
+    def fn():
+        nonlocal x
+        x = x + 1
+        return x
+    return fn
+
+f = inc()
+print(f()) # 1
+print(f()) # 2
+```
+## 3. 匿名函数
+```python
+#lambda只能有一个表达式，不用return
+>>> list(map(lambda x: x * x, [1, 2, 3, 4, 5, 6, 7, 8, 9]))
+[1, 4, 9, 16, 25, 36, 49, 64, 81]
 ```
