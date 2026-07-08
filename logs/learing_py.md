@@ -828,7 +828,7 @@ pip3 install Pillow
 ```python
 #class定义类关键字
 #(object)类继承的对象，object是所有类的继承对象
-#__init__方法绑定属性，第一个参数永远是self
+#__init__方法绑定属性，第一个参数永远是self，绑定的是实例的属性，而不是类的属性
 class Student(object):
     def __init__(self, name, score):
         self.name = name
@@ -964,4 +964,142 @@ True
 3
 >>> 'ABC'.__len__()
 3
+#getattr() setattr() hasattr()
+>>> hasattr(obj, 'x') # 有属性'x'吗？
+True
+>>> obj.x
+9
+>>> hasattr(obj, 'y') # 有属性'y'吗？
+False
+>>> setattr(obj, 'y', 19) # 设置一个属性'y'
+>>> hasattr(obj, 'y') # 有属性'y'吗？
+True
+>>> getattr(obj, 'y') # 获取属性'y'
+19
+>>> obj.y # 获取属性'y'
+19
+>>> getattr(obj, 'z', 404) # 获取属性'z'，如果不存在，返回默认值404
+404>>> hasattr(obj, 'power') # 有属性'power'吗？
+True
+>>> getattr(obj, 'power') # 获取属性'power'
+<bound method MyObject.power of <__main__.MyObject object at 0x10077a6a0>>
+>>> fn = getattr(obj, 'power') # 获取属性'power'并赋值到变量fn
+>>> fn # fn指向obj.power
+<bound method MyObject.power of <__main__.MyObject object at 0x10077a6a0>>
+>>> fn() # 调用fn()与调用obj.power()是一样的
+81
+```
+## 5. 实例属性和类属性
+```python
+#给实例绑定属性
+class Student(object):
+    def __init__(self, name):
+        self.name = name
+
+s = Student('Bob')
+s.score = 90
+#给类绑定属性
+class Student(object):
+    name = 'Student'
+#类属性是类所有，同类所有实例共享一个类属性
+#是在animal->dog->puppy的多一层分类
+>>> class Student(object):
+...     name = 'Student'
+...
+>>> s = Student() # 创建实例s
+>>> print(s.name) # 打印name属性，因为实例并没有name属性，所以会继续查找class的name属性
+Student
+>>> print(Student.name) # 打印类的name属性
+Student
+>>> s.name = 'Michael' # 给实例绑定name属性
+>>> print(s.name) # 由于实例属性优先级比类属性高，因此，它会屏蔽掉类的name属性
+Michael
+>>> print(Student.name) # 但是类属性并未消失，用Student.name仍然可以访问
+Student
+>>> del s.name # 如果删除实例的name属性
+>>> print(s.name) # 再次调用s.name，由于实例的name属性没有找到，类的name属性就显示出来了
+Student
+```
+# 8. 面对对象的高级编程
+## 1. __slots__
+```python
+#给实例绑定新方法
+>>> def set_age(self, age): # 定义一个函数作为实例方法
+...     self.age = age
+...
+>>> from types import MethodType
+>>> s.set_age = MethodType(set_age, s) # 给实例绑定一个方法
+>>> s.set_age(25) # 调用实例方法
+>>> s.age # 测试结果
+25
+#给类绑定新方法
+>>> def set_score(self, score):
+...     self.score = score
+...
+>>> Student.set_score = set_score
+#__slots__定义允许绑定的属性名称
+#仅对当前类实例起作用，对继承子类不起作用
+#当仅当子类和父类都使用__slots__的时候，子类才继承并且最终是两者__slots__的并集
+```
+## 2. @property
+```python
+#优化方法内部的对数据的检查
+#@property实现将方法转化为属性，并且能够直接读取，可读
+#@birth.setter实现方法的修改，可写
+class Student(object):
+    @property
+    def birth(self):
+        return self._birth
+
+    @birth.setter
+    def birth(self, value):
+        self._birth = value
+
+    @property
+    def age(self):
+        return 2015 - self._birth
+```
+## 3. 多重继承
+```python
+class Dog(Mammal, RunnableMixIn, CarnivorousMixIn):
+    pass
+```
+## 4. 定制类
+```python
+#__str__
+#创建实例之后的返回值
+class Student(object):
+    def __init__(self, name):
+        self.name = name
+    def __str__(self):
+        return 'Student object (name=%s)' % self.name
+    __repr__ = __str__
+>>>Student('Tom')
+Student objetc (name=Tom)
+#__iter__
+#返回一个迭代对象（自身）
+class Fib(object):
+    def __init__(self):
+        self.a, self.b = 0, 1 # 初始化两个计数器a，b
+
+    def __iter__(self):
+        return self # 实例本身就是迭代对象，故返回自己
+
+    def __next__(self):
+        self.a, self.b = self.b, self.a + self.b # 计算下一个值
+        if self.a > 100000: # 退出循环的条件
+            raise StopIteration()
+        return self.a # 返回下一个值
+#创建的可迭代对象
+>>> for n in Fib():
+...     print(n)
+...
+1
+1
+2
+3
+5
+...
+46368
+75025
 ```
