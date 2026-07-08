@@ -706,3 +706,262 @@ print(f()) # 2
 >>> list(map(lambda x: x * x, [1, 2, 3, 4, 5, 6, 7, 8, 9]))
 [1, 4, 9, 16, 25, 36, 49, 64, 81]
 ```
+## 4. 装饰器
+```python
+#函数本身也是对象，可以对对象进行编程
+#在执行log的时候定义一个wrapper并返回，替换其中的func
+#再次执行时实现对函数的修改以及调用原函数
+#执行装饰器之后的now.__name__将变成wrapper
+import functools
+def log(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kw):
+        print('call %s():' % func.__name__)
+        return func(*args, **kw)
+    return wrapper
+#使用装饰器
+@log
+def now():
+    print('2024-6-1')
+>>> now()
+call now():
+2024-6-1
+#相当于
+#因为会调用原函数，所以指向变化了但是原函数执行保留
+now = log(now)
+#如果装饰器带参数
+import functools
+def log(text):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kw):
+            print('%s %s():' % (text, func.__name__))
+            return func(*args, **kw)
+        return wrapper
+    return decorator
+#相当于
+#先执行log('execute')再返回函数作用于now
+>>> now = log('execute')(now)
+```
+## 5. 偏函数
+```python
+#当函数的参数个数太多，需要简化时，使用functools.partial可以创建一个新的函数，这个新函数可以固定住原函数的部分参数，从而在调用时更简单。
+int2 = functools.partial(int, base=2)
+#相当于
+kw = { 'base': 2 }
+int('10010', **kw)
+#如果本身不含关键字参数，会看做可变参数的一部分，即每次输入参数都有这个值
+max2 = functools.partial(max, 10)
+#相当于
+args = (10, 5, 6, 7)
+max(*args)
+```
+# 6. 模块
+```python
+#一个.py文件就是一个模块
+#当模块命名冲突，添加顶层包名
+#包内必须包含__innit__.py文件，同样也是一个模块，就是顶层包名同名的模块
+mycompany
+ ├─ web
+ │  ├─ __init__.py
+ │  ├─ utils.py
+ │  └─ www.py
+ ├─ __init__.py
+ ├─ abc.py
+ └─ utils.py
+```
+## 1. 使用模块
+```python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+' a test module '
+
+__author__ = 'Michael Liao'
+
+import sys
+
+def test():
+    args = sys.argv
+    if len(args)==1:
+        print('Hello, world!')
+    elif len(args)==2:
+        print('Hello, %s!' % args[1])
+    else:
+        print('Too many arguments!')
+
+if __name__=='__main__':
+    test()
+
+#_前缀函数看做不应该被别人引用，但实际上是可以引用的，只是编程规范
+def _private_1(name):
+    return 'Hello, %s' % name
+
+def _private_2(name):
+    return 'Hi, %s' % name
+
+def greeting(name):
+    if len(name) > 3:
+        return _private_1(name)
+    else:
+        return _private_2(name)
+```
+## 2. 安装第三方模块
+```bash
+pip3 install Pillow
+#或者安装anaconda有常见的包
+```
+```python
+#模块搜索路径
+#相当于寻找模块的环境变量，存储在sys.path中
+>>> import sys
+>>> sys.path
+['', '/Library/Frameworks/Python.framework/Versions/3.6/lib/python36.zip', '/Library/Frameworks/Python.framework/Versions/3.6/lib/python3.6', ..., '/Library/Frameworks/Python.framework/Versions/3.6/lib/python3.6/site-packages']
+#添加自己的path
+#只在运行时生效
+>>> import sys
+>>> sys.path.append('/Users/michael/my_py_scripts')
+#永久添加PYTHONPATH
+```
+# 7. 面向对象编程
+## 1. 类和实例
+```python
+#class定义类关键字
+#(object)类继承的对象，object是所有类的继承对象
+#__init__方法绑定属性，第一个参数永远是self
+class Student(object):
+    def __init__(self, name, score):
+        self.name = name
+        self.score = score
+>>> bart = Student('Bart Simpson', 59)
+>>> bart.name
+'Bart Simpson'
+>>> bart.score
+59
+#数据封装
+>>> def print_score(std):
+...     print('%s: %s' % (std.name, std.score))
+...
+>>> print_score(bart)
+Bart Simpson: 59
+#对于Student实例本身就拥有这些数据，可以内部定义函数
+class Student(object):
+    def __init__(self, name, score):
+        self.name = name
+        self.score = score
+
+    def print_score(self):
+        print('%s: %s' % (self.name, self.score))
+#本身实例的属性是__dict__字典动态存储的，可以给统一类下的不同实体添加或删除属性
+class Student:
+    def __init__(self, name, score):
+        self.name = name
+        self.score = score
+
+bart = Student('Bart Simpson', 59)
+lisa = Student('Lisa Simpson', 87)
+# 查看实例的属性字典
+print(bart.__dict__)  # {'name': 'Bart Simpson', 'score': 59}
+print(lisa.__dict__)  # {'name': 'Lisa Simpson', 'score': 87}
+# 只给bart添加age属性
+bart.age = 8
+print(bart.__dict__)  # {'name': 'Bart Simpson', 'score': 59, 'age': 8}
+print(lisa.__dict__)  # {'name': 'Lisa Simpson', 'score': 87}  # 没有age
+#可以限制绑定的属性在class定义类的时候
+__slots__ = ('name', 'score')  # 只允许这两个属性
+```
+## 2. 访问限制
+```python
+#__私有变量不允许外部访问
+class Student(object):
+    def __init__(self, name, score):
+        self.__name = name
+        self.__score = score
+
+    def print_score(self):
+        print('%s: %s' % (self.__name, self.__score))
+>>> bart = Student('Bart Simpson', 59)
+>>> bart.__name
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+AttributeError: 'Student' object has no attribute '__name'
+#但是可以通过方法访问和修改私有变量
+class Student(object):
+    ...
+
+    def get_name(self):
+        return self.__name
+
+    def get_score(self):
+        return self.__score
+    def set_score(self,score):
+        self.__score=score
+#_只是不建议访问，没有强制
+#不能直接访问__name是因为Python解释器对外把__name变量改成了_Student__name，所以，仍然可以通过_Student__name来访问__name变量
+>>> bart._Student__name
+'Bart Simpson'
+#对应的，如果访问原有的__name会创建一个新的属性
+、>>> bart.__name = 'New Name' # 设置__name变量！
+>>> bart.__name
+'New Name'
+```
+## 3. 继承和多态
+```python
+#数学集合上，子类是父类的子集，但是，从数据类型上，子类继承父类的所有方法和属性，并且可以定义自己独立的属性和方法
+#子类定义同名方法会覆盖父类的方法
+>>> isinstance(a, list)
+True
+>>> isinstance(b, Animal)
+True
+>>> isinstance(c, Dog)
+True
+#子类继承父类的所有数据类型
+>>> isinstance(c, Animal)
+True
+#对于接受父类的函数，因为子类一定继承父类的方法，虽然不一定重新定义自己的方法，但是存在方法可以调用
+def run_twice(animal):
+    animal.run()
+    animal.run()
+>>> run_twice(Animal())
+Animal is running...
+Animal is running...
+>>> run_twice(Dog())
+Dog is running...
+Dog is running...
+#对于静态语言来说一定要传入animal类型数据，但是对于动态语言只需要传入的实例有run()这个方法即可，长得像就认为是
+```
+## 4. 获取对象信息
+```python
+#type()
+>>> type(123)
+<class 'int'>
+#指向函数或者类
+>>> type(abs)
+<class 'builtin_function_or_method'>
+>>> type(a)
+<class '__main__.Animal'>
+#除去基本数据类型外，引用types模块
+>>> import types
+>>> type(fn)==types.FunctionType
+True
+>>> type(abs)==types.BuiltinFunctionType
+True
+>>> type(lambda x: x)==types.LambdaType
+True
+>>> type((x for x in range(10)))==types.GeneratorType
+True
+#对于class使用isinstace()，瞒住数学集合的子类父类关系
+#判断多个类型中的一种
+>>> isinstance([1, 2, 3], (list, tuple))
+True
+>>> isinstance((1, 2, 3), (list, tuple))
+True
+#dir()获取class的属性和方法
+>>> dir('ABC')
+['__add__', '__class__',..., '__subclasshook__', 'capitalize', 'casefold',..., 'zfill']
+#类似__xxx__的属性和方法在Python中都是有特殊用途的，比如__len__方法返回长度。在Python中，如果你调用len()函数试图获取一个对象的长度，实际上，在len()函数内部，它自动去调用该对象的__len__()方法，所以，下面的代码是等价的：
+>>> len('ABC')
+3
+>>> 'ABC'.__len__()
+3
+```
