@@ -1102,4 +1102,194 @@ class Fib(object):
 ...
 46368
 75025
+#__getitem__
+#实现下标访问
+class Fib(object):
+    def __getitem__(self, n):
+        a, b = 1, 1
+        for x in range(n):
+            a, b = b, a + b
+        return a
+#要实现list的slice需要对其进行更复杂的操作
+#__getattr__
+#不同于前面的getattr()函数直接在属性和方法中查找，这里只有在找不到的情况下才进入
+#常用于链式调用
+class Chain(object):
+    def __init__(self, path=''):
+        self._path = path
+
+    def __getattr__(self, path):
+        return Chain('%s/%s' % (self._path, path))
+
+    def __str__(self):
+        return self._path
+
+    __repr__ = __str__
+#每访问一级因为没找到而创建一级
+>>> Chain().status.user.timeline.list
+'/status/user/timeline/list'
+#__call__
+#将实例本身转化为方法调用，不同于class()是创建一个实例
+class Student(object):
+    def __init__(self, name):
+        self.name = name
+
+    def __call__(self):
+        print('My name is %s.' % self.name)
+>>> s = Student('Michael')
+>>> s() # self参数不要传入
+My name is Michael.
+#判断是否是一个可调用方法
+>>> callable(Student())
+True
+>>> callable(max)
+True
+>>> callable([1, 2, 3])
+False
+```
+## 5. 枚举类
+```python
+#定义一个class类，每个常量都是class的唯一实例
+#默认member.value是1开始
+from enum import Enum
+Month = Enum('Month', ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'))
+#更精准控制枚举类
+from enum import Enum, unique
+@unique
+class Weekday(Enum):
+    Sun = 0 # Sun的value被设定为0
+    Mon = 1
+    Tue = 2
+    Wed = 3
+    Thu = 4
+    Fri = 5
+    Sat = 6
+#输出
+#name是key名，member是成员，虽然member.name==name
+#name用于过程的字典遍历，member用于对象
+>>>for name, member in Month.__members__.items():
+    print(name, '=>', member, ',', member.value)
+Jan => Month.Jan , 1
+Feb => Month.Feb , 2
+```
+## 6. 使用元类
+```python
+#使用type()创建类
+#类明，继承父类，dict字典
+>>> def fn(self, name='world'): # 先定义函数
+...     print('Hello, %s.' % name)
+...
+>>> Hello = type('Hello', (object,), dict(hello=fn)) # 创建Hello clas
+
+def create_model(table_name, fields):
+    """动态创建数据模型类"""
+    # 动态生成 __init__ 方法
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+    # 动态生成 __repr__ 方法
+    def __repr__(self):
+        attrs = ', '.join(f"{k}={v}" for k, v in self.__dict__.items())
+        return f"{table_name}({attrs})"
+    # 创建类
+    return type(table_name, (), {
+        '__init__': __init__,
+        '__repr__': __repr__,
+        'table_name': table_name,
+        **fields  # 添加字段作为类属性
+    })
+# 使用
+User = create_model('User', {
+    'id': int,
+    'name': str,
+    'email': str
+})
+user = User(id=1, name='Alice', email='alice@example.com')
+print(user)             # User(id=1, name=Alice, email=alice@example.com)
+print(user.table_name)  # User
+```
+# 9. 错误，调试和测试
+## 1. 错误处理
+<a>https://docs.python.org/3/library/exceptions.html#exception-hierarchy</a>
+
+```python
+#当我们认为某些代码可能会出错时，就可以用try来运行这段代码，如果执行出错，则后续代码不会继续执行，而是直接跳转至错误处理代码，即except语句块，执行完except后，如果有finally语句块，则执行finally语句块，至此，执行完毕。如果没有错误，执行else
+#错误自身也是一个class，子类排在父类后面会被拦截
+#跨级多层调用，只要内层调用的函数报错就会被捕获
+try:
+    print('try...')
+    r = 10 / int('2')
+    print('result:', r)
+except ValueError as e:
+    print('ValueError:', e)
+except ZeroDivisionError as e:
+    print('ZeroDivisionError:', e)
+else:
+    print('no error!')
+finally:
+    print('finally...')
+print('END')
+#错误定位
+#但是不会终止而是执行到return
+def main():
+    try:
+        bar('0')
+    except Exception as e:
+        logging.exception(e)
+#抛出错误
+#需要自己定义一个类继承
+class FooError(ValueError):
+    pass
+def foo(s):
+    n = int(s)
+    if n==0:
+        raise ValueError('invalid value: %s' % s)
+    return 10 / n
+def bar():
+    try:
+        foo('0')
+    except ValueError as e:
+        print('ValueError!')
+        raise   #继续上抛，当前函数无法处理错误，而捕获错误的目的是记录
+bar()
+#可以在上抛的时候转化逻辑
+try:
+    10 / 0
+except ZeroDivisionError:
+    raise ValueError('input error!')
+```
+## 2. 调试
+```python
+#assert断言代替print调试输出
+#表达式应该是True，否则抛出AssertionError
+def foo(s):
+    n = int(s)
+    assert n != 0, 'n is zero!'
+    return 10 / n
+def main():
+    foo('0')
+#关闭assert
+$ python -O err.py
+Traceback (most recent call last):
+  ...
+ZeroDivisionError: division by zero
+#logging输出错误到日志
+#debug info warning error
+#设置高等级，低等级不起作用
+import logging
+logging.basicConfig(level=logging.INFO)
+s = '0'
+n = int(s)
+logging.info('n = %d' % n)
+print(10 / n)
+#定义到文件输出
+import logging
+# 基础配置：输出到文件
+logging.basicConfig(
+    level=logging.INFO,
+    filename='app.log',  # 输出到文件
+    filemode='a',        # 'a'追加，'w'覆盖
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logging.info("这条日志会写入文件 app.log")
 ```
