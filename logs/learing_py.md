@@ -1293,3 +1293,283 @@ logging.basicConfig(
 )
 logging.info("这条日志会写入文件 app.log")
 ```
+## 3. 单元测试
+```python
+#为实现某一函数模块的正常运行，增加的测试文件
+#测试模块的方法必须是test_开始
+import unittest
+from mydict import Dict
+class TestDict(unittest.TestCase):
+    def test_init(self):
+        d = Dict(a=1, b='test')
+        self.assertEqual(d.a, 1)
+        self.assertEqual(d.b, 'test')
+        self.assertTrue(isinstance(d, dict))
+    def test_key(self):
+        d = Dict()
+        d['key'] = 'value'
+        self.assertEqual(d.key, 'value')
+    def test_attr(self):
+        d = Dict()
+        d.key = 'value'
+        self.assertTrue('key' in d)
+        self.assertEqual(d['key'], 'value')
+    def test_keyerror(self):
+        d = Dict()
+        with self.assertRaises(KeyError):
+            value = d['empty']
+    def test_attrerror(self):
+        d = Dict()
+        with self.assertRaises(AttributeError):
+            value = d.empty
+#运行测试单元
+$ python -m unittest mydict_tes
+#每个测试方法开始和结束都会分别执行setUp()和tearDown()
+class TestDict(unittest.TestCase):
+    def setUp(self):
+        print('setUp...')
+    def tearDown(self):
+        print('tearDown...')
+```
+## 4. 文档测试
+```python
+#用命令行交互的形式显示输入和输出
+#作为测试和示例
+# mydict2.py
+class Dict(dict):
+    '''
+    Simple dict but also support access as x.y style.
+
+    >>> d1 = Dict()
+    >>> d1['x'] = 100
+    >>> d1.x
+    100
+    >>> d1.y = 200
+    >>> d1['y']
+    200
+    >>> d2 = Dict(a=1, b=2, c='3')
+    >>> d2.c
+    '3'
+    >>> d2['empty']
+    Traceback (most recent call last):
+        ...
+    KeyError: 'empty'
+    >>> d2.empty
+    Traceback (most recent call last):
+        ...
+    AttributeError: 'Dict' object has no attribute 'empty'
+    '''
+    def __init__(self, **kw):
+        super(Dict, self).__init__(**kw)
+
+    def __getattr__(self, key):
+        try:
+            return self[key]
+        except KeyError:
+            raise AttributeError(r"'Dict' object has no attribute '%s'" % key)
+
+    def __setattr__(self, key, value):
+        self[key] = value
+if __name__=='__main__':
+    import doctest
+    doctest.testmod()
+```
+# 10. IO编程
+## 1. 文件读写
+```python
+#以r模式打开一个文件对象
+#默认UTF-8文本
+>>> f = open('/Users/michael/test.txt', 'r')
+#调用方法，输出str
+>>>f.read()
+'Hello'
+#关闭文件
+>>>f.close()
+#但是文件读写可能出现IOError
+#文件读写出错将不执行f.close
+with open('/path/to/file', 'r') as f:
+    print(f.read())
+#如果文件很小，read()一次性读取最方便；如果不能确定文件大小，反复调用read(size)比较保险；如果是配置文件，调用readlines()最方便：
+for line in f.readlines():
+    print(line.strip()) # 把末尾的'\n'删掉
+#读取二进制文本文件
+>>> f = open('/Users/michael/test.jpg', 'rb')
+>>> f.read()
+b'\xff\xd8\xff\xe1\x00\x18Exif\x00\x00...' # 十六进制表示的字节
+#读取非UTF-8文本
+#遇到错误编码的处理方式
+>>> f = open('/Users/michael/gbk.txt', 'r', encoding='gbk', errors='ignore')
+>>> f.read()
+'测试'
+#写文件同样使用with
+with open('/Users/michael/test.txt', 'w') as f:
+    f.write('Hello, world!')
+```
+## 2. StringIO和BytesIO
+```python
+#在内存中读写
+>>> from io import StringIO
+>>> f = StringIO()
+>>> f.write('hello')
+5
+>>> f.write(' ')
+1
+>>> f.write('world!')
+6
+>>> print(f.getvalue())
+hello world!
+#也可以整个输入然后逐行输出
+>>> from io import StringIO
+>>> f = StringIO('Hello!\nHi!\nGoodbye!')
+>>> while True:
+...     s = f.readline()
+...     if s == '':
+...         break
+...     print(s.strip())
+...
+Hello!
+Hi!
+Goodbye!
+#BytesIO
+>>> from io import BytesIO
+>>> f = BytesIO()
+>>> f.write('中文'.encode('utf-8'))
+6
+>>> print(f.getvalue())
+b'\xe4\xb8\xad\xe6\x96\x87'
+#同样初始化之后读写
+>>> from io import BytesIO
+>>> f = BytesIO(b'\xe4\xb8\xad\xe6\x96\x87')
+>>> f.read()
+b'\xe4\xb8\xad\xe6\x96\x87'
+```
+## 3. 操作文件和目录
+```python
+#os模块的基本功能
+#nt是win，posix是其他
+>>> import os
+>>> os.name # 操作系统类型
+'posix'
+#环境变量
+>>> os.environ
+environ({'VERSIONER_PYTHON_PREFER_32_BIT': 'no', 'TERM_PROGRAM_VERSION': '326', 'LOGNAME': 'michael', 'USER': 'michael', 'PATH': '/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/X11/bin:/usr/local/mysql/bin', ...})
+#获取某个环境变量的值
+>>> os.environ.get('PATH')
+'/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/X11/bin:/usr/local/mysql/bin'
+>>> os.environ.get('x', 'default')
+'default'
+# 查看当前目录的绝对路径:
+>>> os.path.abspath('.')
+'/Users/michael'
+# 拼接目录，把新的完整路径表示出来:
+#拼接分离都是对字符串进行操作，不需要文件真实存在
+>>> os.path.join('/Users/michael', 'testdir')
+'/Users/michael/testdir'
+#分离路径
+>>> os.path.split('/Users/michael/testdir/file.txt')
+('/Users/michael/testdir', 'file.txt')
+#获取文件扩展名
+>>> os.path.splitstext('/path/to/file.txt')
+('/path/to/file','.txt')
+# 创建一个目录:
+>>> os.mkdir('/Users/michael/testdir')
+# 删掉一个目录:
+>>> os.rmdir('/Users/michael/testdir')
+# 对文件重命名:
+>>> os.rename('test.txt', 'test.py')
+# 删掉文件:
+>>> os.remove('test.py')
+#没有删除文件，可以import shutil实现copyfile()
+#获取所有文件
+>>> [x for x in os.listdir('.') if os.path.isdir(x)]
+['.lein', '.local', '.m2', '.npm', '.ssh', '.Trash', '.vim', 'Applications', 'Desktop', ...]
+#对于for in的解读
+import os
+# 列表推导式（简洁）
+dirs1 = [x for x in os.listdir('.') if os.path.isdir(x)]
+# 普通for循环（易读）
+dirs2 = []
+for x in os.listdir('.'):
+    if os.path.isdir(x):
+        dirs2.append(x)
+#获取.py文件，splitext输出两个元素，取下标1
+>>>[x for x in os.listdir('.') if os.path.isfile(x) and os.path.splitext(x)[1]=='.py']
+['apis.py', 'config.py', 'models.py', 'pymonitor.py', 'test_db.py', 'urls.py', 'wsgiapp.py']
+```
+## 4. 序列化
+```python
+#将内存的数据转化为可存储对象
+#将任意对象序列化为bytes
+>>> import pickle
+>>> d = dict(name='Bob', age=20, score=88)
+>>> pickle.dumps(d)
+b'\x80\x03}q\x00(X\x03\x00\x00\x00ageq\x01K\x14X\x05\x00\x00\x00scoreq\x02KXX\x04\x00\x00\x00nameq\x03X\x03\x00\x00\x00Bobq\x04u.'
+#将对象序列化后写入文件
+>>> f = open('dump.txt', 'wb')
+>>> pickle.dump(d, f)
+>>> f.close()
+#从文件中反序列化
+>>> f=open('dump.txt',rb)
+>>> d=pickle.load(f)
+>>> f.close()
+>>> d
+'输出内容'
+#json实现不同语言间的数据传输
+>>> import json
+>>> d = dict(name='Bob', age=20, score=88)
+>>> json.dumps(d)
+'{"age": 20, "score": 88, "name": "Bob"}'
+>>> json_str = '{"age": 20, "score": 88, "name": "Bob"}'
+>>> json.loads(json_str)
+{'age': 20, 'score': 88, 'name': 'Bob'} #因为dict在py 和json都是{}表示，掐面的dict是强制tuple转化来的
+#将实例对象转化为json序列
+#obj.__dict__就是存储了实例的所有属性和方法的字典
+def studen2dict(std):
+    return {
+        'name':std.name,
+        'age':std.age,
+        'score':std.score
+    }
+>>>print(json.dumps(s,defalut=student2dict))
+>>>print(json.dumps(s,default=lambda obj:obj.__dict__))
+#反序列化，对于传入一个dict转化为实例
+def dict2student(d):
+    return Student(d['name'], d['age'], d['score'])
+>>> json_str = '{"age": 20, "score": 88, "name": "Bob"}'
+>>> print(json.loads(json_str, object_hook=dict2student))
+<__main__.Student object at 0x10cd3c190>
+```
+# 11. 进程和线程
+## 1. 多进程
+```python
+#os.fork()从自身返回值开始复制两份
+#一份父进程，返回值是子进程id
+#一份子进程，返回值是0
+#后续代码都要分别在两个进程中执行
+#所以即使只有一个if判断，也是两个执行
+#getpid获取自身id，getppid获取父进程id
+import os
+print('Process (%s) start...' % os.getpid())
+# Only works on Unix/Linux/macOS:
+pid = os.fork()
+if pid == 0:
+    print('I am child process (%s) and my parent is %s.' % (os.getpid(), os.getppid()))
+else:
+    print('I (%s) just created a child process (%s).' % (os.getpid(), pid))
+#multiprocessing模块实现跨平台的多版本进程
+#传入子进程要执行的函数和参数
+from multiprocessing import Process
+import os
+# 子进程要执行的代码
+def run_proc(name):
+    print('Run child process %s (%s)...' % (name, os.getpid()))
+if __name__=='__main__':
+    print('Parent process %s.' % os.getpid())
+    p = Process(target=run_proc, args=('test',))
+    print('Child process will start.')
+    p.start()
+    p.join()
+    print('Child process end.')
+#进程池创建大量子进程
+
+```
