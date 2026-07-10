@@ -1571,5 +1571,92 @@ if __name__=='__main__':
     p.join()
     print('Child process end.')
 #进程池创建大量子进程
-
+#创建池子，即限定当前并行的任务数
+#apply创建任务
+#close不再接受创建的任务
+#join等待任务完成，即同步
+from multiprocessing import Pool
+import os,time,random
+def vtask(param):
+    print(param)
+if __name__=='__name__':
+    p=Pool(4)
+    for i in range(5):
+        p.apply_async(vtask,args=(i,))      #apply_async()方法传入第二个参数是命名关键字，并且这里传入tuple只有一个参数，所以(i,)
+    p.close()
+    p.join()
+#subprocess
+#创建子进程是外部进程
+#subprocess.run()
+import subprocess
+result = subprocess.run(
+    args=['echo', 'Hello World'],   # 命令和参数列表
+    capture_output=True,            # 捕获输出
+    text=True,                      # 以文本模式返回（否则是bytes）
+    timeout=10,                     # 超时时间（秒）
+    check=True,                     # 返回值非0时抛出CalledProcessError
+    shell=False,                    # 是否通过shell执行
+    env=None,                       # 环境变量
+    cwd='/tmp',                     # 工作目录
+    input='some input',             # 标准输入内容
+    encoding='utf-8'                # 编码方式
+)
+#subprocess.Popen()和somminicate()
+#实现创建子进程并且通信输入输出
+import subprocess
+proc = subprocess.Popen(
+    args=['python3', 'script.py'],  # 命令
+    stdin=subprocess.PIPE,          # 标准输入管道
+    stdout=subprocess.PIPE,         # 标准输出管道
+    stderr=subprocess.PIPE,         # 标准错误管道
+    text=True,                      # 文本模式
+    bufsize=1,                      # 行缓冲
+    cwd='/path/to/dir',             # 工作目录
+    env={'PATH': '/usr/bin'},       # 环境变量
+    universal_newlines=True,        # 文本模式（Python 3.6+）
+    shell=False,                    # 不使用shell
+    preexec_fn=None,                # 子进程前执行函数（Unix）
+    close_fds=True                  # 关闭文件描述符
+)
+stdout, stderr = proc.communicate(input="Hello World\n")
+#进程间通信
+#使用multiprocess的Process创建进程
+from multiprocessing import Process, Queue
+import os, time, random
+def write(q):
+    print('Process to write: %s' % os.getpid())
+    for value in ['A', 'B', 'C']:
+        print('Put %s to queue...' % value)
+        q.put(value)
+        time.sleep(random.random())
+def read(q):
+    print('Process to read: %s' % os.getpid())
+    while True:
+        value = q.get(True)
+        print('Get %s from queue.' % value)
+if __name__=='__main__':
+    # 父进程创建Queue，并传给各个子进程：
+    q = Queue()
+    pw = Process(target=write, args=(q,))
+    pr = Process(target=read, args=(q,))
+    # 启动子进程pw，写入:
+    pw.start()
+    # 启动子进程pr，读取:
+    pr.start()
+    # 等待pw结束:
+    pw.join()
+    # pr进程里是死循环，无法等待其结束，只能强行终止:
+    pr.terminate()
+```
+## 2. 多线程
+```python
+#python的线程是真实的posix thread
+#threading模块
+import threading 
+def worker(args):
+    pass
+t=threading.Thread(target=worker,args=(1))
+t.start()
+t.join()
+#
 ```
