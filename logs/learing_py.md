@@ -1652,11 +1652,280 @@ if __name__=='__main__':
 ```python
 #python的线程是真实的posix thread
 #threading模块
+#自动创建的主线程是MainThreads
 import threading 
 def worker(args):
     pass
-t=threading.Thread(target=worker,args=(1))
+t=threading.Thread(target=worker,args=(1,))
 t.start()
 t.join()
-#
+#多进程中同名变量各自拷贝一份而不影响
+#多线程中同名变量共享
+#使用try finally不是为实现获取锁异常的阻塞，而是解决成功获取后，执行代码有错而导致后续release不执行的死锁，所以release一定执行
+balance = 0
+lock = threading.Lock()
+def run_thread(n):
+    for i in range(100000):
+        # 先要获取锁:
+        lock.acquire()
+        try:
+            # 放心地改吧:
+            change_it(n)
+        finally:
+            # 改完了一定要释放锁:
+            lock.release()
+#要实现多核同时运行，是创建多个进程，同一进程内多线程是GIL锁而线程并发运行
+```
+## 3. ThreadLocal
+```python
+#ThreadLocal.xxx相当于在各自线程里绑定各变量而不相互影响
+#在a线程是ThreadLocal.xxx==1，在b线程是ThreadLocal.xxx==2
+import threading
+# 创建全局ThreadLocal对象:
+local_school = threading.local()
+def process_student():
+    # 获取当前线程关联的student:
+    std = local_school.student
+    print('Hello, %s (in %s)' % (std, threading.current_thread().name))
+def process_thread(name):
+    # 绑定ThreadLocal的student:
+    local_school.student = name
+    process_student()
+t1 = threading.Thread(target= process_thread, args=('Alice',), name='Thread-A')
+t2 = threading.Thread(target= process_thread, args=('Bob',), name='Thread-B')
+t1.start()
+t2.start()
+t1.join()
+t2.join()
+```
+## 4. 分布式进程
+```python
+#实现多主机线程通信
+# task_master.py
+#创建QueueManager类继承BaseManager，并注册queue对象，回调函数是lambda
+#创建实例
+#start()
+#通过注册的queue访问
+#shutdown()关闭
+import random, time, queue
+from multiprocessing.managers import BaseManager
+# 发送任务的队列:
+task_queue = queue.Queue()
+# 接收结果的队列:
+result_queue = queue.Queue()
+# 从BaseManager继承的QueueManager:
+class QueueManager(BaseManager):
+    pass
+# 把两个Queue都注册到网络上, callable参数关联了Queue对象:
+QueueManager.register('get_task_queue', callable=lambda: task_queue)
+QueueManager.register('get_result_queue', callable=lambda: result_queue)
+# 绑定端口5000, 设置验证码'abc':
+manager = QueueManager(address=('', 5000), authkey=b'abc')
+# 启动Queue:
+manager.start()
+# 获得通过网络访问的Queue对象:
+task = manager.get_task_queue()
+result = manager.get_result_queue()
+# 放几个任务进去:
+for i in range(10):
+    n = random.randint(0, 10000)
+    print('Put task %d...' % n)
+    task.put(n)
+# 从result队列读取结果:
+print('Try get results...')
+for i in range(10):
+    r = result.get(timeout=10)
+    print('Result: %s' % r)
+# 关闭:
+manager.shutdown()
+print('master exit.')
+
+# task_worker.py
+import time, sys, queue
+from multiprocessing.managers import BaseManager
+# 创建类似的QueueManager:
+class QueueManager(BaseManager):
+    pass
+# 由于这个QueueManager只从网络上获取Queue，所以注册时只提供名字:
+QueueManager.register('get_task_queue')
+QueueManager.register('get_result_queue')
+# 连接到服务器，也就是运行task_master.py的机器:
+server_addr = '127.0.0.1'
+print('Connect to server %s...' % server_addr)
+# 端口和验证码注意保持与task_master.py设置的完全一致:
+m = QueueManager(address=(server_addr, 5000), authkey=b'abc')
+# 从网络连接:
+m.connect()
+# 获取Queue的对象:
+task = m.get_task_queue()
+result = m.get_result_queue()
+# 从task队列取任务,并把结果写入result队列:
+for i in range(10):
+    try:
+        n = task.get(timeout=1)
+        print('run task %d * %d...' % (n, n))
+        r = '%d * %d = %d' % (n, n, n*n)
+        time.sleep(1)
+        result.put(r)
+    except Queue.Empty:
+        print('task queue is empty.')
+# 处理结束:
+print('worker exit.')
+```
+# 12. 正则表达式
+1. \d可以匹配一个数字，\w可以匹配一个字母或数字，.可以匹配任意字符
+2. *表示任意个字符（包括0个），用+表示至少一个字符，用?表示0个或1个字符，用{n}表示n个字符，用{n,m}表示n-m个字符，如 \d{3}\s+\d{3,8}
+3. '-'是特殊字符，在正则表达式中，要用'\'转义
+4. [0-9a-zA-Z\_]可以匹配一个数字、字母或者下划线
+5. ^表示行开始，$表示行结束
+```python
+#表示正则表达式
+>>> import re
+>>> re.match(r'^\d{3}\-\d{3,8}$', '010-12345')
+<_sre.SRE_Match object; span=(0, 9), match='010-12345'>
+>>> re.match(r'^\d{3}\-\d{3,8}$', '010 12345')
+>>>
+#正则表达式的切割，默认不保留分隔符
+>>> re.split(r'\s+', 'a b   c')
+['a', 'b', 'c']
+>>> re.split(r'[\s\,]+', 'a,b, c  d')
+['a', 'b', 'c', 'd']
+>>> re.split(r'[\s\,\;]+', 'a,b;; c  d')
+['a', 'b', 'c', 'd']
+#但是切割使用的分组就会保留，因为作为分组的一部分
+text = ',a,b,'
+# 不保留
+re.split(r'[,;]+', text)    # 输出: ['', 'a', 'b', '']  # 开头和结尾产生空字符串
+# 保留
+re.split(r'([,;]+)', text)  # 输出: ['', ',', 'a', ',', 'b', ',', '']
+#分组
+>>> m = re.match(r'^(\d{3})-(\d{3,8})$', '010-12345')
+>>> m
+<_sre.SRE_Match object; span=(0, 9), match='010-12345'>
+>>> m.group(0)  #自身
+'010-12345'
+>>> m.group(1)
+'010'
+>>> m.group(2)
+'12345'
+>>> t = '19:05:30'
+>>> m = re.match(r'^(0[0-9]|1[0-9]|2[0-3]|[0-9])\:(0[0-9]|1[0-9]|2[0-9]|3[0-9]|4[0-9]|5[0-9]|[0-9])\:(0[0-9]|1[0-9]|2[0-9]|3[0-9]|4[0-9]|5[0-9]|[0-9])$', t)
+>>> m.groups()
+('19', '05', '30')
+#非贪婪匹配，尽可能少的匹配字符，尽可能让后面的多匹配字符
+>>> re.match(r'^(\d+?)(0*)$', '102300').groups()
+('1023', '00')
+#正则表达式要重复使用，则提前编译
+>>> import re
+# 编译:
+>>> re_telephone = re.compile(r'^(\d{3})-(\d{3,8})$')
+# 使用：
+>>> re_telephone.match('010-12345').groups()
+('010', '12345')
+>>> re_telephone.match('010-8086').groups()
+('010', '8086')
+```
+# 13. 常用内建模块
+## 1. datetime
+```python
+#获取当前日期
+>>> from datetime import datetime   #导入模块中的指定类
+>>> now=datetime.now()
+>>> print(now)
+2015-05-18 16:28:07.198690
+>>> print(type(now))
+<class 'datetime.datetime'>
+#获取制定日期时间
+>>> dt =datetime(2026,7,14,10,55)
+>>> print(dt)
+2026-07-14 10:55:00
+#timestamp和时区没有关系，而是统一的
+>>> dt.timestamp
+xxx.0
+>>> t=12322332232.0
+>>> print(datetime.fromtimestap(t))
+#输入str转化为datetime
+>>> cday=datetime.strptime('2026-07-14 11:01:00','%Y-%m-%d %H:%M:%S')
+#datetime转化为str
+>>> from datetime import datetime
+>>> now = datetime.now()
+>>> print(now.strftime('%a, %b %d %H:%M'))
+Mon, May 05 16:28
+#datetime加减
+>>> from datetime import datetime, timedelta
+>>> now = datetime.now()
+>>> now
+datetime.datetime(2015, 5, 18, 16, 57, 3, 540997)
+>>> now + timedelta(hours=10)
+datetime.datetime(2015, 5, 19, 2, 57, 3, 540997)
+>>> now - timedelta(days=1)
+datetime.datetime(2015, 5, 17, 16, 57, 3, 540997)
+>>> now + timedelta(days=2, hours=12)
+datetime.datetime(2015, 5, 21, 4, 57, 3, 540997)
+```
+## 2. collections
+```python
+#为加强tuple的可读性，引入namedtuple并且元素的引用可以使用元素名，类似与c的结构体
+#创建的类是tuple的子类
+>>> from collecions import namedtuple
+>>> Point=namedtuple('Point',['x','y'])
+>>> p=Piont(1,2)
+>>> p.x
+1
+#list可以实现指定位置pop和append，但是默认是从尾部开始，指定位置执行内部的开销大
+#deque实现双向列表，可以leftpop和leftappend
+>>> from collections import deque
+>>> q = deque(['a', 'b', 'c'])
+>>> q.append('x')
+>>> q.appendleft('y')
+>>> q
+deque(['y', 'a', 'b', 'c', 'x'])
+#使用dict，当其不存在的值添加默认
+#本质上是不存在的key调用函数，而函数返回一个值
+>>> from collections import defaultdict
+>>> dd = defaultdict(lambda: 'N/A')
+>>> dd['key1'] = 'abc'
+>>> dd['key1'] # key1存在
+'abc'
+>>> dd['key2'] # key2不存在，返回默认值
+'N/A'
+#为实现dict有序
+>>> from collections import OrderedDict
+>>> d = dict([('a', 1), ('b', 2), ('c', 3)])
+>>> d # dict的Key是无序的，依据哈希算法访问
+{'a': 1, 'c': 3, 'b': 2}
+>>> od = OrderedDict([('a', 1), ('b', 2), ('c', 3)])
+>>> od # OrderedDict的Key是有序的，和插入顺序保持一致
+OrderedDict([('a', 1), ('b', 2), ('c', 3)])
+#二维dict，实现参数组的分类，例如在多个环境中寻找变量的值
+from collections import ChainMap
+import os, argparse
+# 构造缺省参数:
+defaults = {
+    'color': 'red',
+    'user': 'guest'
+}
+# 构造命令行参数:
+parser = argparse.ArgumentParser()
+parser.add_argument('-u', '--user')
+parser.add_argument('-c', '--color')
+namespace = parser.parse_args()
+command_line_args = { k: v for k, v in vars(namespace).items() if v }
+# 组合成ChainMap:
+combined = ChainMap(command_line_args, os.environ, defaults)
+# 打印参数:
+print('color=%s' % combined['color'])
+print('user=%s' % combined['user'])
+#counter直接计数
+>>> from collections import Counter
+>>> c = Counter('programming')
+>>> for ch in 'programming':
+...     c[ch] = c[ch] + 1
+...
+>>> c
+Counter({'g': 2, 'm': 2, 'r': 2, 'a': 1, 'i': 1, 'o': 1, 'n': 1, 'p': 1})
+>>> c.update('hello') # 也可以一次性update
+>>> c
+Counter({'r': 2, 'o': 2, 'g': 2, 'm': 2, 'l': 2, 'p': 1, 'a': 1, 'i': 1, 'n': 1, 'h': 1, 'e': 1})
+
 ```
