@@ -1927,5 +1927,353 @@ Counter({'g': 2, 'm': 2, 'r': 2, 'a': 1, 'i': 1, 'o': 1, 'n': 1, 'p': 1})
 >>> c.update('hello') # 也可以一次性update
 >>> c
 Counter({'r': 2, 'o': 2, 'g': 2, 'm': 2, 'l': 2, 'p': 1, 'a': 1, 'i': 1, 'n': 1, 'h': 1, 'e': 1})
+```
+## 3. argparse
+```python
+# backup.py
+import argparse
+def main():
+    # 定义一个ArgumentParser实例:
+    parser = argparse.ArgumentParser(
+        prog='backup', # 程序名
+        description='Backup MySQL database.', # 描述
+        epilog='Copyright(r), 2023' # 说明信息
+    )
+    # 定义位置参数:
+    parser.add_argument('outfile')
+    # 定义关键字参数:
+    parser.add_argument('--host', default='localhost')
+    # 此参数必须为int类型:
+    parser.add_argument('--port', default='3306', type=int)
+    # 允许用户输入简写的-u:
+    parser.add_argument('-u', '--user', required=True)
+    parser.add_argument('-p', '--password', required=True)
+    parser.add_argument('--database', required=True)
+    # gz参数不跟参数值，因此指定action='store_true'，意思是出现-gz表示True:
+    parser.add_argument('-gz', '--gzcompress', action='store_true', required=False, help='Compress backup files by gz.')
+    # 解析参数:
+    args = parser.parse_args()
+    # 打印参数:
+    print('parsed args:')
+    print(f'outfile = {args.outfile}')
+    print(f'host = {args.host}')
+    print(f'port = {args.port}')
+    print(f'user = {args.user}')
+    print(f'password = {args.password}')
+    print(f'database = {args.database}')
+    print(f'gzcompress = {args.gzcompress}')
+if __name__ == '__main__':
+    main()
+```
+## 4. base64
+1. 使用64个字符表示任意二进制数据的方法
+![base64](./resources/base64.png)
+## 5. struct
+```python
+#实现bytes和其他数据类型的转化
+#>表示大端序，网络序
+#I表示无符号四字节整数
+#H表示无符号两字节整数
+>>> import struct
+>>> struct.pack('>I', 10240099)
+b'\x00\x9c@c'
+>>> struct.unpack('>IH', b'\xf0\xf0\xf0\xf0\x80\x80')
+(4042322160, 32896)
+```
+## 6. hashlib
+```python
+#哈希算法就是通过哈希函数hash(data)对任意长度的数据data计算出固定长度的哈希digest，目的是为了发现原始数据是否被人篡改过。
+#可以通过data得到digest但是难以从digest得到data
+#常用于密码存储
+import hashlib
+md5 = hashlib.md5()
+md5.update('how to use md5 in python hashlib?'.encode('utf-8'))
+print(md5.hexdigest())
+```
+## 7. hmac
+```python
+#为实现同一data也对应不同digest
+>>> import hmac
+>>> message = b'Hello, world!'
+>>> key = b'secret'
+>>> h = hmac.new(key, message, digestmod='MD5')
+>>> # 如果消息很长，可以多次调用h.update(msg)
+>>> h.hexdigest()
+'fa4ee7d173f2d97ee79022d1a7355bcf'
+```
+## 8. intertools
+```python
+#count无限增加
+>>> import itertools
+>>> natuals = itertools.count(1)
+>>> for n in natuals:
+...     print(n)
+...
+1
+2
+3
+...
+#cycle无限循环
+>>> import itertools
+>>> cs = itertools.cycle('ABC') # 注意字符串也是序列的一种
+>>> for c in cs:
+...     print(c)
+...
+'A'
+'B'
+'C'
+'A'
+'B'
+'C'
+...
+#repeat无限重复，可以指定重复次数
+>>> ns = itertools.repeat('A', 3)
+>>> for n in ns:
+...     print(n)
+...
+A
+A
+A
+#以上均为惰性序列
+#为获取惰性序列的部分值
+>>> natuals = itertools.count(1)
+>>> ns = itertools.takewhile(lambda x: x <= 10, natuals)
+>>> list(ns)
+[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+#chain将一组迭代对象串联起来
+>>> for c in itertools.chain('ABC', 'XYZ'):
+...     print(c)    # 迭代效果：'A' 'B' 'C' 'X' 'Y' 'Z'
+#groupby将序列元素依次作用于函数，若返回值相等则分类在一个group
+>>> for key, group in itertools.groupby('AaaBBbcCAAa', lambda c: c.upper()):
+...     print(key, list(group))
+...
+A ['A', 'a', 'a']
+B ['B', 'B', 'b']
+C ['c', 'C']
+A ['A', 'A', 'a']
+```
+## 9. contextlib
+```python
+#@contextmanager修饰一个generator，实现对象的上下文，即可以被with访问
+#with语句先执行generator的yield前的部分，然后yield的值作为as的值，然后执行with后的语句，最后执行yield之后的部分
+from contextlib import contextmanager
+class Query(object):
+    def __init__(self, name):
+        self.name = name
 
+    def query(self):
+        print('Query info about %s...' % self.name)
+@contextmanager
+def create_query(name):
+    print('Begin')
+    q = Query(name)
+    yield q
+    print('End')
+with create_query('Bob') as q:
+    q.query()
+#@closing将对象变为上下文对象
+from contextlib import closing
+from urllib.request import urlopen
+with closing(urlopen('https://www.python.org')) as page:
+    for line in page:
+        print(line)
+```
+## 10. urllib
+```python
+#抓取网页内容
+from urllib import request
+with request.urlopen('https://api.douban.com/v2/book/2129650') as f:
+    data = f.read()
+    print('Status:', f.status, f.reason)
+    for k, v in f.getheaders():
+        print('%s: %s' % (k, v))
+    print('Data:', data.decode('utf-8'))
+#模仿请求发送GET
+from urllib import request
+req = request.Request('http://www.douban.com/')
+req.add_header('User-Agent', 'Mozilla/6.0 (iPhone; CPU iPhone OS 8_0 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Version/8.0 Mobile/10A5376e Safari/8536.25')
+with request.urlopen(req) as f:
+    print('Status:', f.status, f.reason)
+    for k, v in f.getheaders():
+        print('%s: %s' % (k, v))
+    print('Data:', f.read().decode('utf-8'))
+#服务器返回的消息
+...
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="apple-touch-icon" sizes="57x57" href="http://img4.douban.com/pics/cardkit/launcher/57.png" />
+...
+#模拟发送POST请求
+from urllib import request, parse
+print('Login to weibo.cn...')
+email = input('Email: ')
+passwd = input('Password: ')
+login_data = parse.urlencode([
+    ('username', email),
+    ('password', passwd),
+    ('entry', 'mweibo'),
+    ('client_id', ''),
+    ('savestate', '1'),
+    ('ec', ''),
+    ('pagerefer', 'https://passport.weibo.cn/signin/welcome?entry=mweibo&r=http%3A%2F%2Fm.weibo.cn%2F')
+])
+req = request.Request('https://passport.weibo.cn/sso/login')
+req.add_header('Origin', 'https://passport.weibo.cn')
+req.add_header('User-Agent', 'Mozilla/6.0 (iPhone; CPU iPhone OS 8_0 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Version/8.0 Mobile/10A5376e Safari/8536.25')
+req.add_header('Referer', 'https://passport.weibo.cn/signin/login?entry=mweibo&res=wel&wm=3349&r=http%3A%2F%2Fm.weibo.cn%2F')
+with request.urlopen(req, data=login_data.encode('utf-8')) as f:
+    print('Status:', f.status, f.reason)
+    for k, v in f.getheaders():
+        print('%s: %s' % (k, v))
+    print('Data:', f.read().decode('utf-8'))
+```
+## 11. XML
+```python
+#DOM将整个XML读入内存，SAX流式读取
+```
+## 12. venv
+```bash
+#创建独立的py环境
+python3 -m venv .
+cd bin
+source activate
+(projectvenv)$ deactivate
+```
+# 14. 常用第三方模块
+## 1. psutil
+```python
+#获取CPU信息
+>>> import psutil
+>>> psutil.cpu_count() # CPU逻辑数量
+4
+>>> psutil.cpu_count(logical=False) # CPU物理核心
+2   # 2说明是双核超线程, 4则是4核非超线程
+#统计CPU用户 系统 空闲时间
+>>> psutil.cpu_times()
+scputimes(user=10963.31, nice=0.0, system=5138.67, idle=356102.45)
+#获取物理内存和交换内存信息
+>>> psutil.virtual_memory()
+svmem(total=8589934592, available=2866520064, percent=66.6, used=7201386496, free=216178688, active=3342192640, inactive=2650341376, wired=1208852480)
+>>> psutil.swap_memory()
+sswap(total=1073741824, used=150732800, free=923009024, percent=14.0, sin=10705981440, sout=40353792)
+#获取磁盘信息
+>>> psutil.disk_partitions() # 磁盘分区信息
+[sdiskpart(device='/dev/disk1', mountpoint='/', fstype='hfs', opts='rw,local,rootfs,dovolfs,journaled,multilabel')]
+>>> psutil.disk_usage('/') # 磁盘使用情况
+sdiskusage(total=998982549504, used=390880133120, free=607840272384, percent=39.1)
+>>> psutil.disk_io_counters() # 磁盘IO
+sdiskio(read_count=988513, write_count=274457, read_bytes=14856830464, write_bytes=17509420032, read_time=2228966, write_time=1618405)
+#获取网络信息
+>>> psutil.net_io_counters() # 获取网络读写字节／包的个数
+snetio(bytes_sent=3885744870, bytes_recv=10357676702, packets_sent=10613069, packets_recv=10423357, errin=0, errout=0, dropin=0, dropout=0)
+>>> psutil.net_if_addrs() # 获取网络接口信息
+{
+  'lo0': [snic(family=<AddressFamily.AF_INET: 2>, address='127.0.0.1', netmask='255.0.0.0'), ...],
+  'en1': [snic(family=<AddressFamily.AF_INET: 2>, address='10.0.1.80', netmask='255.255.255.0'), ...],
+  'en0': [...],
+  'en2': [...],
+  'bridge0': [...]
+}
+>>> psutil.net_if_stats() # 获取网络接口状态
+{
+  'lo0': snicstats(isup=True, duplex=<NicDuplex.NIC_DUPLEX_UNKNOWN: 0>, speed=0, mtu=16384),
+  'en0': snicstats(isup=True, duplex=<NicDuplex.NIC_DUPLEX_UNKNOWN: 0>, speed=0, mtu=1500),
+  'en1': snicstats(...),
+  'en2': snicstats(...),
+  'bridge0': snicstats(...)
+}
+#获取网络连接信息
+>>> psutil.net_connections()
+Traceback (most recent call last):
+  ...
+PermissionError: [Errno 1] Operation not permitted
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  ...
+psutil.AccessDenied: psutil.AccessDenied (pid=3847)
+#获取进程信息
+>>> psutil.pids() # 所有进程ID
+[3865, 3864, 3863, 3856, 3855, 3853, 3776, ..., 45, 44, 1, 0]
+>>> p = psutil.Process(3776) # 获取指定进程ID=3776，其实就是当前Python交互环境
+>>> p.name() # 进程名称
+'python3.6'
+>>> p.exe() # 进程exe路径
+'/Users/michael/anaconda3/bin/python3.6'
+>>> p.cwd() # 进程工作目录
+'/Users/michael'
+>>> p.cmdline() # 进程启动的命令行
+['python3']
+>>> p.ppid() # 父进程ID
+3765
+>>> p.parent() # 父进程
+<psutil.Process(pid=3765, name='bash') at 4503144040>
+>>> p.children() # 子进程列表
+[]
+>>> p.status() # 进程状态
+'running'
+>>> p.username() # 进程用户名
+'michael'
+>>> p.create_time() # 进程创建时间
+1511052731.120333
+>>> p.terminal() # 进程终端
+'/dev/ttys002'
+>>> p.cpu_times() # 进程使用的CPU时间
+pcputimes(user=0.081150144, system=0.053269812, children_user=0.0, children_system=0.0)
+>>> p.memory_info() # 进程使用的内存
+pmem(rss=8310784, vms=2481725440, pfaults=3207, pageins=18)
+>>> p.open_files() # 进程打开的文件
+[]
+>>> p.connections() # 进程相关网络连接
+[]
+>>> p.num_threads() # 进程的线程数量
+1
+>>> p.threads() # 所有线程信息
+[pthread(id=1, user_time=0.090318, system_time=0.062736)]
+>>> p.environ() # 进程环境变量
+{'SHELL': '/bin/bash', 'PATH': '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:...', 'PWD': '/Users/michael', 'LANG': 'zh_CN.UTF-8', ...}
+>>> p.terminate() # 结束进程
+Terminated: 15 <-- 自己把自己结束了
+#模拟ps命令效果
+$ sudo python3
+Password: ******
+Python 3.6.3 ... on darwin
+Type "help", ... for more information.
+>>> import psutil
+>>> psutil.test()
+USER         PID %MEM     VSZ     RSS TTY           START    TIME  COMMAND
+root           0 24.0 74270628 2016380 ?             Nov18   40:51  kernel_task
+root           1  0.1 2494140    9484 ?             Nov18   01:39  launchd
+root          44  0.4 2519872   36404 ?             Nov18   02:02  UserEventAgent
+root          45    ? 2474032    1516 ?             Nov18   00:14  syslogd
+root          47  0.1 2504768    8912 ?             Nov18   00:03  kextd
+root          48  0.1 2505544    4720 ?             Nov18   00:19  fseventsd
+_appleeven    52  0.1 2499748    5024 ?             Nov18   00:00  appleeventsd
+root          53  0.1 2500592    6132 ?             Nov18   00:02  configd
+...
+```
+# 15.图形界面
+## 1. tutle
+```python
+# 导入turtle包的所有内容:
+from turtle import *
+# 设置笔刷宽度:
+width(4)
+# 前进:
+forward(200)
+# 右转90度:
+right(90)
+# 笔刷颜色:
+pencolor('red')
+forward(100)
+right(90)
+pencolor('green')
+forward(200)
+right(90)
+pencolor('blue')
+forward(100)
+right(90)
+# 调用done()使得窗口等待被关闭，否则将立刻关闭窗口:
+done()
 ```
